@@ -28,10 +28,9 @@ class TRTModel():
             self.context = self.engine.create_execution_context()
 
     def reserve_cuda_memory(self):
-        engine, context = self.build_engine()
 
-        for binding in engine:
-            if engine.binding_is_input(binding):  # we expect only one input
+        for binding in self.engine:
+            if self.engine.binding_is_input(binding):  # we expect only one input
                 #self.device_input_tensor = torch.tensor(np.zeros([self.batch_size , 3, 128, 128], dtype = np.float32), device = torch.device('cuda'))
                 pass
             else: 
@@ -41,7 +40,7 @@ class TRTModel():
 	
     def run(self, images_tensor):
         self.context.execute_async_v2(bindings=[int(images_tensor.data_ptr()), 
-                                                int(self.device_output_tensor.data_ptr())], 
+                                                int(self.output_tensor.data_ptr())], 
                                       stream_handle=self.stream.handle)
         self.stream.synchronize()
 

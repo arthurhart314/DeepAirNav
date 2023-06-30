@@ -4,15 +4,17 @@ import matplotlib.pyplot as plt
 
 class ParticleFilter():
     def __init__(self, num_particles):
-        self.init_time = time.time()
+        self.init_time = -time.time()
 
         self.move_time = 0
+        self.move_n = 0
         self.resample_time = 0
+        self.resample_n = 0
 
         self.num_particles = num_particles
         self.particles = torch.zeros([num_particles, 4], dtype = torch.float32).cuda()
 
-        self.init_time = time.time() - self.init_time
+        self.init_time += time.time()
 
     def move(self, displacement_val, displacement_var):
 
@@ -20,6 +22,7 @@ class ParticleFilter():
 
         displacement_val = displacement_val[None, :].repeat(self.num_particles, 1)
         displacement_var = displacement_var[None, :].repeat(self.num_particles, 1)
+
 
         displacement_rand= torch.normal(displacement_val, displacement_var)
         
@@ -31,6 +34,8 @@ class ParticleFilter():
         self.particles[:,3] += displacement_rand[:,3]
 
         self.move_time += time.time()
+        self.move_n += 1
+
 
     def resample(self, embeddings):
 
@@ -46,15 +51,18 @@ class ParticleFilter():
         self.particles = self.particles[new_indices]
 
         self.resample_time += time.time()
+        self.resample_n += 1
+
 
     def print_times(self):
         print ("init time : ", self.init_time)
-        print ("move time : ", self.init_time)
-        print ("resample time : ", self.init_time)
+        print ("move time : ", self.move_time/self.move_n)
+        print ("resample time : ", self.resample_time/self.resample_n)
+
 
     def draw_particles(self):
-        xs = self.particles[:,0]
-        ys = self.particles[:,1]
+        xs = self.particles[:,0].cpu().numpy()
+        ys = self.particles[:,1].cpu().numpy()
         plt.xlim([-10, 10])
         plt.ylim([-10, 10])
         plt.scatter(xs, ys)
