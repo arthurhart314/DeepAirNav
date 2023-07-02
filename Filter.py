@@ -65,7 +65,7 @@ class ParticleFilter():
         ys = self.particles[:,1].cpu().numpy()
         plt.xlim([-10, 10])
         plt.ylim([-10, 10])
-        plt.scatter(xs, ys)
+        plt.scatter(xs, ys, s=2)
         plt.show()
 
 

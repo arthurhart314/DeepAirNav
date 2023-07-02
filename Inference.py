@@ -22,6 +22,15 @@ class TRTModel():
 
             with open(model_path, "rb") as f:
                 parser.parse(f.read())
+
+            inputTensor = network.get_input(0) 
+            print('inputTensor.name:', inputTensor.name)
+
+            profile = builder.create_optimization_profile()
+            profile.set_shape(inputTensor.name, (self.batch_size, 3, 128, 128), \
+        	                                    (self.batch_size, 3, 128, 128), \
+        	                                    (self.batch_size, 3, 128, 128))
+            builder_config.add_optimization_profile(profile)
             
             self.engine = builder.build_engine(network, builder_config)
 
@@ -41,7 +50,7 @@ class TRTModel():
     def run(self, images_tensor):
         self.context.execute_async_v2(bindings=[int(images_tensor.data_ptr()), 
                                                 int(self.output_tensor.data_ptr())], 
-                                      stream_handle=self.stream.handle)
+        stream_handle=self.stream.handle)
         self.stream.synchronize()
 
         return self.output_tensor
