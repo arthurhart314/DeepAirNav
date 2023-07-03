@@ -1,6 +1,9 @@
 import time
 import torch
 import matplotlib.pyplot as plt
+import numpy as np
+
+import pymap3d as pm
 
 class ParticleFilter():
     def __init__(self, num_particles):
@@ -11,8 +14,11 @@ class ParticleFilter():
         self.resample_time = 0
         self.resample_n = 0
 
+        self.coord_transform_time = 0
+
         self.num_particles = num_particles
         self.particles = torch.zeros([num_particles, 4], dtype = torch.float32).cuda()
+        self.geo_particles = np.zeros([num_particles, 4], dtype = np.float64)
 
         self.init_time += time.time()
 
@@ -37,6 +43,25 @@ class ParticleFilter():
         self.move_n += 1
 
 
+    def to_geodetic(self, lla0):
+
+        self.coord_transform_time -= time.time()
+
+        lat, lon, alt = pm.ned2geodetic(self.particles[:,0].cpu().numpy(), 
+                                        self.particles[:,1].cpu().numpy(),
+                                        self.particles[:,2].cpu().numpy(),
+                                        lla0[0], lla0[1], lla0[2])
+                                        
+        self.geo_particles[:,0] = lat
+        self.geo_particles[:,1] = lon
+        self.geo_particles[:,2] = alt
+        self.geo_particles[:,3] = self.particles[:,3].cpu().numpy()
+
+        self.coord_transform_time += time.time()
+
+        return self.geo_particles
+
+
     def resample(self, embeddings):
 
         self.resample_time -= time.time()
@@ -58,6 +83,7 @@ class ParticleFilter():
         print ("init time : ", self.init_time)
         print ("move time : ", self.move_time/self.move_n)
         print ("resample time : ", self.resample_time/self.resample_n)
+        print ("coord transform time : ", self.coord_transform_time/self.move_n)
 
 
     def draw_particles(self):

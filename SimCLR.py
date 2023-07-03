@@ -170,8 +170,10 @@ def load_saved_model(config):
     model.load_state_dict(torch.load(config['weights filepath']))
     return model
 
+
 def save_model(model, file_path):
     torch.save(model.state_dict(), file_path)
+
 
 def get_single_embedding(config, model, img):
     
@@ -189,6 +191,7 @@ def get_single_embedding(config, model, img):
         emb = normalize(emb)
 
     return emb
+
 
 def get_embeddings_from_img_arr(config, model, img_arr):
 
@@ -222,10 +225,12 @@ def generate_embeddings(model, dataloader):
     embeddings = normalize(embeddings)
     return embeddings, filenames
 
+
 def get_image_as_np_array(filename: str):
     """Returns an image as an numpy array"""
     img = Image.open(filename)
     return np.asarray(img)
+
 
 def plot_knn_examples(embeddings, filenames, path_to_data, n_neighbors=3, num_examples=6):###############
     """Plots multiple rows of random images with their nearest neighbors"""
