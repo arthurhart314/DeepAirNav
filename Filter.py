@@ -16,6 +16,9 @@ class ParticleFilter():
 
         self.coord_transform_time = 0
 
+        self.probas = None
+        self.dist = None
+
         self.num_particles = num_particles
         self.particles = torch.zeros([num_particles, 4], dtype = torch.float32).cuda()
         self.geo_particles = np.zeros([num_particles, 4], dtype = np.float64)
@@ -36,11 +39,26 @@ class ParticleFilter():
                                displacement_rand[:,1]*torch.sin(self.particles[:,3])
         self.particles[:,1] += displacement_rand[:,0]*torch.sin(self.particles[:,3]) + \
                                displacement_rand[:,1]*torch.cos(self.particles[:,3])
+        
         self.particles[:,2] += displacement_rand[:,2]
+
+        self.particles[:,2] = torch.relu((self.particles[:,2]))
+
         self.particles[:,3] += displacement_rand[:,3]
 
         self.move_time += time.time()
         self.move_n += 1
+
+    def sample_particles(self, x_range, y_range, z_range, yaw_range):
+
+        x = np.random.uniform(x_range[0], x_range[1], self.num_particles)
+        y = np.random.uniform(y_range[0], y_range[1], self.num_particles)
+        z = np.random.uniform(z_range[0], z_range[1], self.num_particles)
+        yaw = np.random.uniform(yaw_range[0], yaw_range[1], self.num_particles)
+
+        self.particles = torch.tensor(np.array([x, y, z, yaw]).T, dtype = torch.float32).cuda()
+
+        return self.particles
 
 
     def to_geodetic(self, lla0):
@@ -61,19 +79,55 @@ class ParticleFilter():
 
         return self.geo_particles
 
+    @torch.no_grad() ## check resampling!!
 
-    def resample(self, embeddings):
+    def calculate_probabilities(self, embeddings, target_embedding):
+        dist = (embeddings - target_embedding)*(embeddings - target_embedding)
+        dist = dist.sum(axis = 1)
+
+        dist_np = dist.cpu().numpy()
+
+
+        counts, bins = np.histogram(dist_np, bins = 20)
+        plt.stairs(counts, bins)
+        plt.show()
+
+
+        print ("d : ", dist.min(), " ",  dist.max(), " ", dist.mean())
+        print ("d : ", dist)
+
+        self.dist = dist
+
+        probas = 1 - (dist - dist.min())/(dist.max() - dist.min())
+
+        self.probas = probas
+
+        print ("p : ", probas.min(), " ",  probas.max(), " ", probas.mean())
+        print ("p : ", probas)
+
+    def resample(self):
 
         self.resample_time -= time.time()
 
-        first_embedding = embeddings[0]
-        weights = embeddings - first_embedding
+        #new_indices = torch.argsort(self.dist)#torch.multinomial(self.probas, self.probas.shape[0], replacement=True)
+        
+        new_indices = torch.multinomial(self.probas, self.probas.shape[0], replacement=True)
 
-        weights *= weights
-        weights = embeddings.sum(axis = 1)/embeddings.sum()
+        print ('old particles : ', self.particles)
+        print ('old distances : ', self.dist)
+        
+        #self.particles = self.particles[new_indices[:int(self.num_particles/2.0)].cpu().tolist()*2]
+        #self.dist = self.dist[new_indices[:int(self.num_particles/2.0)].cpu().tolist()*2]
 
-        new_indices = torch.multinomial(weights, weights.shape[0], replacement=True)
         self.particles = self.particles[new_indices]
+        self.dist = self.dist[new_indices]
+
+
+        print ('new particles : ', self.particles)
+        print ('new distances : ', self.dist)
+
+
+        #self.particles = self.particles[new_indices]
 
         self.resample_time += time.time()
         self.resample_n += 1
@@ -86,12 +140,44 @@ class ParticleFilter():
         print ("coord transform time : ", self.coord_transform_time/self.move_n)
 
 
-    def draw_particles(self):
-        xs = self.particles[:,0].cpu().numpy()
-        ys = self.particles[:,1].cpu().numpy()
-        plt.xlim([-10, 10])
-        plt.ylim([-10, 10])
-        plt.scatter(xs, ys, s=2)
+    def colors_from_probas(self):
+
+        p = self.probas.cpu().numpy()
+
+        color_arr = (p - p.min())/(p.max() - p.min())
+
+        color_arr = color_arr.astype(np.float32)
+        color_arr = [(float(1.0 - c), 0, float(c)) for c in color_arr]
+
+        return color_arr
+
+
+    def draw_particles(self, region_id): ## test drawing!!!!!
+        xs = self.particles[:,0].cpu().numpy() + 500
+        ys = -self.particles[:,1].cpu().numpy() + 500
+
+        import cv2
+
+        colors = self.colors_from_probas()
+
+
+        img = cv2.imread("./Maps/0-0.png")
+        img = cv2.resize(img, (1000, 1000))
+
+        img = cv2.flip(img, 0)
+        #img = cv2.flip(img, 1)
+        
+
+
+        #img = cv2.flip(img, -1)
+        #img = cv2.flip(img, 1)
+
+        plt.imshow(img)
+
+        plt.xlim([0, 1000])
+        plt.ylim([0, 1000])
+
+        plt.scatter(xs, ys, s=2, c='r', marker='o')
         plt.show()
 
 
