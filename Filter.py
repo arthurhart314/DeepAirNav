@@ -61,12 +61,12 @@ class ParticleFilter():
         return self.particles
 
 
-    def to_geodetic(self, lla0):
+    def to_geodetic(self, lla0 =  [31.884542, 34.961650, 0]):
 
         self.coord_transform_time -= time.time()
 
-        lat, lon, alt = pm.ned2geodetic(self.particles[:,0].cpu().numpy(), 
-                                        self.particles[:,1].cpu().numpy(),
+        lat, lon, alt = pm.enu2geodetic(self.particles[:,0].cpu().numpy(), 
+                                     -1*self.particles[:,1].cpu().numpy(),
                                         self.particles[:,2].cpu().numpy(),
                                         lla0[0], lla0[1], lla0[2])
                                         
@@ -87,47 +87,20 @@ class ParticleFilter():
 
         dist_np = dist.cpu().numpy()
 
-
-        counts, bins = np.histogram(dist_np, bins = 20)
-        plt.stairs(counts, bins)
-        plt.show()
-
-
-        print ("d : ", dist.min(), " ",  dist.max(), " ", dist.mean())
-        print ("d : ", dist)
-
         self.dist = dist
 
         probas = 1 - (dist - dist.min())/(dist.max() - dist.min())
 
         self.probas = probas
 
-        print ("p : ", probas.min(), " ",  probas.max(), " ", probas.mean())
-        print ("p : ", probas)
-
     def resample(self):
 
         self.resample_time -= time.time()
-
-        #new_indices = torch.argsort(self.dist)#torch.multinomial(self.probas, self.probas.shape[0], replacement=True)
         
         new_indices = torch.multinomial(self.probas, self.probas.shape[0], replacement=True)
 
-        print ('old particles : ', self.particles)
-        print ('old distances : ', self.dist)
-        
-        #self.particles = self.particles[new_indices[:int(self.num_particles/2.0)].cpu().tolist()*2]
-        #self.dist = self.dist[new_indices[:int(self.num_particles/2.0)].cpu().tolist()*2]
-
         self.particles = self.particles[new_indices]
         self.dist = self.dist[new_indices]
-
-
-        print ('new particles : ', self.particles)
-        print ('new distances : ', self.dist)
-
-
-        #self.particles = self.particles[new_indices]
 
         self.resample_time += time.time()
         self.resample_n += 1
@@ -150,6 +123,21 @@ class ParticleFilter():
         color_arr = [(float(1.0 - c), 0, float(c)) for c in color_arr]
 
         return color_arr
+    
+    def get_mean_std(self):
+
+
+        mean = self.particles.mean(axis = 0)
+        std = self.particles.std(axis = 0)
+
+        self.to_geodetic()
+
+        mean_lla = self.geo_particles.mean(axis = 0)
+        std_lla = self.geo_particles.std(axis = 0)
+
+
+
+        return mean , std, mean_lla, std_lla
 
 
     def draw_particles(self, region_id): ## test drawing!!!!!
@@ -165,19 +153,19 @@ class ParticleFilter():
         img = cv2.resize(img, (1000, 1000))
 
         img = cv2.flip(img, 0)
-        #img = cv2.flip(img, 1)
-        
-
-
-        #img = cv2.flip(img, -1)
-        #img = cv2.flip(img, 1)
 
         plt.imshow(img)
 
         plt.xlim([0, 1000])
         plt.ylim([0, 1000])
 
-        plt.scatter(xs, ys, s=2, c='r', marker='o')
+        plt.scatter(xs, ys, s=1, c='r', marker='o')
+        plt.show()
+
+    def draw_histograms(self):
+        plt.hist(self.probas.cpu().numpy(), bins=100)
+        plt.show()
+        plt.hist(self.dist.cpu().numpy(), bins=100)
         plt.show()
 
 

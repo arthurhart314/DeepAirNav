@@ -43,7 +43,7 @@ class TRTModel():
                 #self.device_input_tensor = torch.tensor(np.zeros([self.batch_size , 3, 128, 128], dtype = np.float32), device = torch.device('cuda'))
                 pass
             else: 
-                self.output_tensor = torch.tensor(np.zeros([self.batch_size , 128], dtype = np.float32), device = torch.device('cuda'))
+                self.output_tensor = torch.tensor(np.zeros([self.batch_size , 512], dtype = np.float32), device = torch.device('cuda'))
 
         self.stream = cuda.Stream()
 	
